@@ -1,0 +1,74 @@
+--Did you know that the average return from investing in stocks is 10% per year! But who wants to be average?! 
+
+You have been asked to support an investment firm by analyzing trends in high-growth companies. They are interested in understanding which industries are producing the highest valuations and the rate at which new high-value companies are emerging. Providing them with this information gives them a competitive insight as to industry trends and how they should structure their portfolio looking forward.
+
+You have been given access to their `unicorns` database, which contains the following tables:
+
+`dates`
+| Column       | Description                                  |
+|------------- |--------------------------------------------- |
+| company_id   | A unique ID for the company.                 |
+| date_joined  | The date that the company became a unicorn.  |
+| year_founded | The year that the company was founded.       |
+
+`funding`
+| Column           | Description                                  |
+|----------------- |--------------------------------------------- |
+| company_id       | A unique ID for the company.                 |
+| valuation        | Company value in US dollars.                 |
+| funding          | The amount of funding raised in US dollars.  |
+| select_investors | A list of key investors in the company.      |
+
+`industries`
+| Column       | Description                                  |
+|------------- |--------------------------------------------- |
+| company_id   | A unique ID for the company.                 |
+| industry     | The industry that the company operates in.   |
+
+`companies`
+| Column       | Description                                       |
+|------------- |-------------------------------------------------- |
+| company_id   | A unique ID for the company.                      |
+| company      | The name of the company.                          |
+| city         | The city where the company is headquartered.      |
+| country      | The country where the company is headquartered.   |
+| continent    | The continent where the company is headquartered. |
+--
+
+--My code solutions--
+
+WITH top_industries as 
+  (select industry 
+  from industries 
+  left join dates using (company_id) 
+  left join funding using (company_id) 
+  where extract(year from date_joined) in ('2019','2020','2021') 
+  group by industry 
+  order by count(date_joined) desc 
+  limit 3)
+
+SELECT industry, 
+        extract(year from date_joined) as year , 
+        count(date_joined) as num_unicorns,
+		    round(avg(valuation)/1000000000,2) as average_valuation_billions
+FROM companies as c 
+LEFT JOIN industries as i using (company_id)
+LEFT JOIN funding as f using (company_id)
+LEFT JOIN dates as d using (company_id)
+WHERE industry in (Select industry from top_industries) 
+AND extract(year from date_joined) in (2019,2020,2021)
+Group by industry, extract(year from date_joined)
+order by industry, year DESC;
+
+--result--
+industry	                        year	num_unicorns	average_valuation_billions
+E-commerce & direct-to-consumer	  2021	47	          2.47
+E-commerce & direct-to-consumer	  2020	16	          4
+E-commerce & direct-to-consumer	  2019	12	          2.58
+Fintech	                          2021	138	          2.75
+Fintech	                          2020	15	          4.33
+Fintech	                          2019	20	          6.8
+Internet software & services	    2021	119	          2.15
+Internet software & services	    2020	20	          4.35
+Internet software & services	    2019	13	          4.23
+
