@@ -1,0 +1,37 @@
+--winner chart sponsored by hacker-rank
+
+with table0 as (Select event_id, participant_name, max(score) as score
+From scoretable
+group by 1,2)
+table1 as (Select *,
+        Dense_rank() OVER(partition by event_id order by score DESC) as rank_id
+        From table0),
+table2 as (select * from table1 where rank_id <=3),
+f as (Select event_id, 
+                    case when rank_id = 1 Then participant_name
+                    else null
+                    end as 'first'
+            From table2
+            where rank_id=1),
+s as (Select event_id, 
+                    case when rank_id = 2 Then participant_name
+                    else null
+                    end as 'second'
+            From table2
+            where rank_id=2),
+t as (Select event_id, 
+                    case when rank_id = 3 Then participant_name
+                    else null
+                    end as 'third'
+            From table2
+            where rank_id=3) ,
+general as  (Select f.event_id,f.first, s.second, t.third
+            From f join s on f.event_id = s.event_id
+            join t on f.event_id = t.event_id
+            order by 1,2,3,4)
+Select event_id, group_concat(distinct first) as 'First',
+        group_concat(distinct second) as 'Second',
+        group_concat(distinct third) as 'Third'
+From general
+group by event_id
+order by event_id
