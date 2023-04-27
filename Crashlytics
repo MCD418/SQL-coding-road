@@ -1,0 +1,90 @@
+
+--Crashlytics Firebase
+SELECT  
+event_id,
+error_type,
+issue_id,
+issue_title,
+issue_subtitle,
+event_timestamp,
+device.model as deviceModel,
+storage.used/1000000000 as storageUsed,
+storage.free/1000000000 as storageFree,
+memory.used/1000000000 as memoryUsed,
+memory.free/1000000000 as memoryFree,
+operating_system,
+operating_system.display_version as osDisplayVersion,
+application.display_version as appDisplayVersion,
+application.build_version as appBuildVersion,
+installation_uuid,
+crashlytics_sdk_version,
+process_state,
+breadcrumbs.timestamp as breadcrumbsTimestamp,
+breadcrumbs.name as breadcrumbsName,
+params.key as breadcrumbsKey,
+params.value as breadscrumbsValue,
+threads.crashed as threadsCrashed,
+threads.thread_name as threadsName,
+threads.title as threadsTitle,
+threads.blamed as threadsBlamed,
+frames.line as framesLine,
+frames.file as framesFile,
+frames.symbol as framesSymbol,
+frames.offset as framesOffset,
+frames.address as framesAddress,
+frames.library as framesLibrary,
+frames.owner as framesOwner,
+frames.blamed as framesBlamed,
+
+FROM `remotetv-43875.firebase_crashlytics.com_smarttv_universal_remote_IOS` ,
+unnest(breadcrumbs) as breadcrumbs,
+unnest(breadcrumbs.params) as params,
+unnest(threads) as threads,
+unnest(threads.frames) as frames
+
+
+
+--crashedUser/activeUser by TV
+
+with activeUser as (SELECT
+  DATE(PARSE_DATE('%Y%m%d', event_date)) as event_date,
+  event_name,
+  param.key,
+  param.value.string_value,
+  matech_id, user_pseudo_id
+FROM
+  `remotetv-43875.analytics_332888339.events_*` ,
+  UNNEST(event_params) AS param
+LEFT JOIN
+(SELECT
+    DISTINCT user_pseudo_id,
+    param.value.string_value AS matech_id
+  FROM
+    `remotetv-43875.analytics_332888339.events_*`,
+    UNNEST(event_params) AS param
+  WHERE
+    param.key = 'USER_ID')
+    USING
+  (user_pseudo_id)
+WHERE matech_id is not null),
+crashedUser as (
+SELECT DATE(FORMAT_TIMESTAMP('%F', breadcrumbs.timestamp)) as event_date, breadcrumbs.name as event_name, param.key, param.value as string_value, matech_id, installation_uuid, "crash" as user_type
+from `firebase_crashlytics.com_smarttv_universal_remote_IOS`,
+unnest (breadcrumbs) as breadcrumbs,
+unnest(breadcrumbs.params) as param
+LEFT JOIN
+(SELECT
+    DISTINCT installation_uuid,
+    param.value AS matech_id
+  FROM
+    `firebase_crashlytics.com_smarttv_universal_remote_IOS`,
+    unnest (breadcrumbs) as breadcrumbs,
+    unnest(breadcrumbs.params) as param
+  WHERE
+    param.key = 'USER_ID')
+    USING
+  (installation_uuid) 
+WHERE matech_id is not null)
+select event_date, event_name, key, string_value, activeUser.matech_id as activeUser, crashedUser.matech_id as crashedUser
+from activeUser left join crashedUser 
+using(event_date, event_name, key, string_value)
